@@ -28,7 +28,7 @@
             <div class="flex justify-between items-center">
                 <div>
                     <h1 class="text-3xl font-black text-slate-800 tracking-tight">FB Group <span class="text-blue-600">Master</span></h1>
-                    <p class="text-slate-500">Publicación masiva simplificada para tus grupos personales.</p>
+                    <p class="text-slate-500">Publicación masiva con algoritmos de protección anti-ban.</p>
                 </div>
                 <div id="fb-auth-status">
                     <button id="loginBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full font-bold transition-all shadow-lg flex items-center gap-2">
@@ -43,6 +43,15 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Alerta de Seguridad -->
+        <div class="bg-amber-50 border border-amber-200 p-4 rounded-xl mb-6 flex gap-3 items-start">
+            <svg class="w-6 h-6 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <div class="text-xs text-amber-800">
+                <p class="font-bold uppercase mb-1">Protección Anti-Ban Activada</p>
+                <p>Para evitar bloqueos, hemos configurado una pausa aleatoria de <strong>15 a 45 segundos</strong> entre publicaciones. No publiques en más de 20 grupos por hora.</p>
             </div>
         </div>
 
@@ -109,19 +118,19 @@
                     </div>
                 </section>
 
-                <button id="startAction" class="w-full bg-green-500 hover:bg-green-600 disabled:bg-slate-300 text-white font-black py-4 rounded-2xl shadow-xl shadow-green-100 transition-all transform active:scale-[0.98] flex justify-center items-center gap-3">
-                    <span id="btnText">PUBLICAR EN GRUPOS SELECCIONADOS</span>
+                <button id="startAction" class="w-full bg-green-600 hover:bg-green-700 disabled:bg-slate-300 text-white font-black py-4 rounded-2xl shadow-xl transition-all transform active:scale-[0.98] flex justify-center items-center gap-3">
+                    <span id="btnText">INICIAR PUBLICACIÓN SEGURA</span>
                     <div id="btnLoader" class="hidden animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
                 </button>
 
                 <!-- Consola de Resultados -->
                 <section class="bg-slate-900 rounded-2xl p-5 shadow-inner">
                     <div class="flex justify-between items-center mb-3">
-                        <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-tighter">Monitor de Proceso</h3>
-                        <div id="progressBadge" class="hidden text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded border border-blue-500/30">EN PROCESO</div>
+                        <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Log de Seguridad</h3>
+                        <div id="progressBadge" class="hidden text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded border border-blue-500/30 font-bold">SIMULANDO ACTIVIDAD HUMANA</div>
                     </div>
                     <div id="consoleLog" class="status-log custom-scrollbar text-[11px] text-green-400 space-y-1">
-                        <div class="text-slate-500">> Sistema listo. Esperando conexión...</div>
+                        <div class="text-slate-500">> Sistema listo. Respete los límites de Facebook.</div>
                     </div>
                 </section>
             </div>
@@ -134,7 +143,6 @@
     <script async defer crossorigin="anonymous" src="https://connect.facebook.net/es_LA/sdk.js"></script>
 
     <script>
-        // REEMPLAZA ESTO CON TU ID DE APP REAL
         const APP_ID = 'TU_APP_ID_AQUÍ'; 
         let accessToken = null;
         let myGroups = [];
@@ -147,10 +155,9 @@
                     xfbml      : true,
                     version    : 'v18.0'
                 });
-
                 FB.getLoginStatus(statusChangeCallback);
             } catch (e) {
-                addLog("Error cargando SDK: Revisa la opción JSSDK en el panel de Facebook.", "error");
+                addLog("Error cargando SDK: Revise configuración.", "error");
             }
         };
 
@@ -159,7 +166,7 @@
                 accessToken = response.authResponse.accessToken;
                 showLoggedInUI();
                 fetchUserGroups();
-                addLog("Autenticado correctamente.", "success");
+                addLog("Sesión iniciada correctamente.", "success");
             } else {
                 showLoggedOutUI();
             }
@@ -193,24 +200,20 @@
         function showLoggedOutUI() {
             document.getElementById('loginBtn').classList.remove('hidden');
             document.getElementById('userInfo').classList.add('hidden');
-            document.getElementById('groupList').innerHTML = `<p class="text-sm text-slate-400 italic text-center py-10">Inicia sesión para cargar tus grupos...</p>`;
+            document.getElementById('groupList').innerHTML = `<p class="text-sm text-slate-400 italic text-center py-10">Conecte su cuenta para cargar grupos.</p>`;
             accessToken = null;
         }
 
         async function fetchUserGroups() {
             const container = document.getElementById('groupList');
-            container.innerHTML = `<div class="py-10 text-center"><div class="animate-spin inline-block w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full"></div><p class="text-xs text-slate-500 mt-2">Obteniendo tus grupos...</p></div>`;
+            container.innerHTML = `<div class="py-10 text-center"><div class="animate-spin inline-block w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full"></div></div>`;
             
-            // Requiere permiso user_managed_groups
             FB.api('/me/groups', {limit: 500}, function(response) {
                 if(response && response.data) {
                     myGroups = response.data;
                     renderGroups(myGroups);
-                    addLog(`Se encontraron ${myGroups.length} grupos gestionables.`);
                 } else {
-                    const errorMsg = response.error ? response.error.message : "No se pudieron cargar los grupos.";
-                    addLog("ERROR: " + errorMsg, "error");
-                    container.innerHTML = `<p class="text-xs text-red-500 p-4 text-center">Error: ${errorMsg}. Revisa permisos en App Review o usa una cuenta con rol de Administrador.</p>`;
+                    container.innerHTML = `<p class="text-xs text-red-500 p-4 text-center">Error al obtener grupos. Verifique permisos.</p>`;
                 }
             });
         }
@@ -218,22 +221,19 @@
         function renderGroups(groups) {
             const container = document.getElementById('groupList');
             if(groups.length === 0) {
-                container.innerHTML = `<p class="text-sm text-red-400 text-center py-10">No se encontraron grupos. Asegúrate de tener permisos o que la App esté configurada correctamente.</p>`;
+                container.innerHTML = `<p class="text-sm text-red-400 text-center py-10">No se encontraron grupos gestionables.</p>`;
                 return;
             }
-
             container.innerHTML = groups.map(g => `
                 <label class="flex items-center p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-blue-200 cursor-pointer transition-all group">
                     <input type="checkbox" value="${g.id}" class="group-check w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
                     <div class="ml-3">
                         <p class="text-sm font-bold text-slate-700 group-hover:text-blue-600 transition-colors">${g.name}</p>
-                        <p class="text-[10px] text-slate-400">ID: ${g.id}</p>
                     </div>
                 </label>
             `).join('');
 
-            const checks = document.querySelectorAll('.group-check');
-            checks.forEach(c => c.onchange = updateCounter);
+            document.querySelectorAll('.group-check').forEach(c => c.onchange = updateCounter);
             updateCounter();
         }
 
@@ -246,36 +246,18 @@
             const val = e.target.value;
             const container = document.getElementById('imgPreviewContainer');
             const img = document.getElementById('imgPreview');
-            if(val) {
-                img.src = val;
-                container.classList.remove('hidden');
-            } else {
-                container.classList.add('hidden');
-            }
+            if(val) { img.src = val; container.classList.remove('hidden'); }
+            else { container.classList.add('hidden'); }
         };
 
-        // Acciones
         document.getElementById('loginBtn').onclick = () => {
-            FB.login(statusChangeCallback, {
-                scope: 'publish_to_groups,groups_access_member_info,user_managed_groups'
-            });
+            FB.login(statusChangeCallback, { scope: 'publish_to_groups,user_managed_groups' });
         };
 
-        document.getElementById('logoutBtn').onclick = () => {
-            FB.logout(statusChangeCallback);
-        };
-
+        document.getElementById('logoutBtn').onclick = () => FB.logout(statusChangeCallback);
         document.getElementById('fetchGroupsBtn').onclick = fetchUserGroups;
-
-        document.getElementById('selectAll').onclick = () => {
-            document.querySelectorAll('.group-check').forEach(c => c.checked = true);
-            updateCounter();
-        };
-
-        document.getElementById('deselectAll').onclick = () => {
-            document.querySelectorAll('.group-check').forEach(c => c.checked = false);
-            updateCounter();
-        };
+        document.getElementById('selectAll').onclick = () => { document.querySelectorAll('.group-check').forEach(c => c.checked = true); updateCounter(); };
+        document.getElementById('deselectAll').onclick = () => { document.querySelectorAll('.group-check').forEach(c => c.checked = false); updateCounter(); };
 
         document.getElementById('startAction').onclick = async () => {
             const selected = Array.from(document.querySelectorAll('.group-check:checked')).map(c => c.value);
@@ -283,8 +265,11 @@
             const link = document.getElementById('postLink').value;
             const img = document.getElementById('postImage').value;
 
-            if(selected.length === 0) return alert("Selecciona al menos un grupo.");
-            if(!msg) return alert("El mensaje no puede estar vacío.");
+            if(selected.length === 0 || !msg) return alert("Complete los campos y seleccione grupos.");
+            
+            if(selected.length > 20) {
+                if(!confirm("Ha seleccionado más de 20 grupos. Esto aumenta el riesgo de BAN. ¿Desea continuar bajo su propio riesgo?")) return;
+            }
 
             const btn = document.getElementById('startAction');
             const loader = document.getElementById('btnLoader');
@@ -293,43 +278,39 @@
             btn.disabled = true;
             loader.classList.remove('hidden');
             badge.classList.remove('hidden');
-            addLog(`Iniciando publicación en ${selected.length} grupos...`, "info");
 
             for(let i = 0; i < selected.length; i++) {
                 const groupId = selected[i];
-                const groupName = myGroups.find(g => g.id === groupId)?.name || groupId;
+                addLog(`Publicando en grupo ${i + 1}/${selected.length}...`, "info");
                 
-                addLog(`Enviando a: ${groupName}...`);
                 await executePost(groupId, msg, link, img);
                 
-                // Pausa de seguridad (5-8 segundos)
                 if(i < selected.length - 1) {
-                    const waitTime = 5000 + Math.random() * 3000;
-                    await new Promise(r => setTimeout(r, waitTime));
+                    // Intervalo de seguridad: entre 15 y 45 segundos aleatorios
+                    const waitSeconds = Math.floor(Math.random() * (45 - 15 + 1)) + 15;
+                    addLog(`Esperando ${waitSeconds}s para simular comportamiento humano...`, "info");
+                    await new Promise(r => setTimeout(r, waitSeconds * 1000));
                 }
             }
 
             btn.disabled = false;
             loader.classList.add('hidden');
             badge.classList.add('hidden');
-            addLog("PROCESO TERMINADO.", "success");
+            addLog("PROCESO FINALIZADO CON ÉXITO.", "success");
         };
 
         function executePost(id, message, link, picture) {
             return new Promise((resolve) => {
-                let params = { 
-                    message: message,
-                    access_token: accessToken
-                };
+                let params = { message: message, access_token: accessToken };
                 if(link) params.link = link;
                 if(picture) params.picture = picture;
 
                 FB.api(`/${id}/feed`, 'post', params, function(response) {
                     if(response && !response.error) {
-                        addLog(`ÉXITO en ${id}`, "success");
+                        addLog(`ÉXITO en ID: ${id}`, "success");
                         resolve(true);
                     } else {
-                        addLog(`FALLO en ${id}: ${response.error?.message || 'Error'}`, "error");
+                        addLog(`ERROR en ID ${id}: ${response.error?.message}`, "error");
                         resolve(false);
                     }
                 });
