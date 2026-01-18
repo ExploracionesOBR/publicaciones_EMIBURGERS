@@ -154,7 +154,7 @@
     <script>
         // --- CONFIGURACIÓN CRÍTICA ---
         // 1. Reemplaza 'TU_APP_ID_AQUÍ' con el ID numérico de tu app en developers.facebook.com
-        const APP_ID = '2322833134885548'; 
+        const APP_ID = 'TU_APP_ID_AQUÍ'; 
         // -----------------------------
 
         let accessToken = null;
@@ -188,7 +188,7 @@
 
         // Verificación de bloqueo de SDK (AdBlockers) o error de dominio
         setTimeout(() => {
-            if (!isSdkLoaded && (APP_ID !== 'TU_APP_ID_AQUÍ')) {
+            if (!isSdkLoaded && (APP_ID !== '2322833134885548')) {
                 showSetupError("El SDK no cargó. Posible error de Dominio Desconocido o AdBlock.");
             }
         }, 5000);
