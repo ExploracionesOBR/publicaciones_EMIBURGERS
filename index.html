@@ -102,6 +102,10 @@
                                 <input id="postImage" type="url" class="w-full border-2 border-slate-100 rounded-xl p-3 text-sm outline-none focus:border-blue-400" placeholder="https://.../foto.jpg">
                             </div>
                         </div>
+                        <div id="imgPreviewContainer" class="hidden mt-2 p-2 border-2 border-dashed border-slate-200 rounded-xl text-center">
+                             <p class="text-[10px] text-slate-400 mb-2 uppercase font-bold tracking-widest">Vista previa de imagen</p>
+                             <img id="imgPreview" class="max-h-32 mx-auto rounded-lg shadow-sm">
+                        </div>
                     </div>
                 </section>
 
@@ -126,22 +130,28 @@
     </div>
 
     <div id="fb-root"></div>
+    <!-- Facebook SDK -->
     <script async defer crossorigin="anonymous" src="https://connect.facebook.net/es_LA/sdk.js"></script>
 
     <script>
-        const APP_ID = '2322833134885548'; // Debes poner tu App ID de developers.facebook.com
+        // REEMPLAZA ESTO CON TU ID DE APP REAL
+        const APP_ID = 'TU_APP_ID_AQUÍ'; 
         let accessToken = null;
         let myGroups = [];
 
         window.fbAsyncInit = function() {
-            FB.init({
-                appId      : APP_ID,
-                cookie     : true,
-                xfbml      : true,
-                version    : 'v18.0'
-            });
+            try {
+                FB.init({
+                    appId      : APP_ID,
+                    cookie     : true,
+                    xfbml      : true,
+                    version    : 'v18.0'
+                });
 
-            FB.getLoginStatus(statusChangeCallback);
+                FB.getLoginStatus(statusChangeCallback);
+            } catch (e) {
+                addLog("Error cargando SDK: Revisa la opción JSSDK en el panel de Facebook.", "error");
+            }
         };
 
         function statusChangeCallback(response) {
@@ -173,8 +183,10 @@
             document.getElementById('loginBtn').classList.add('hidden');
             document.getElementById('userInfo').classList.remove('hidden');
             FB.api('/me', {fields: 'name,picture'}, function(r) {
-                document.getElementById('userName').innerText = r.name;
-                document.getElementById('userImg').src = r.picture.data.url;
+                if (r && !r.error) {
+                    document.getElementById('userName').innerText = r.name;
+                    document.getElementById('userImg').src = r.picture.data.url;
+                }
             });
         }
 
@@ -186,16 +198,19 @@
         }
 
         async function fetchUserGroups() {
-            document.getElementById('groupList').innerHTML = `<div class="py-10 text-center"><div class="animate-spin inline-block w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full"></div><p class="text-xs text-slate-500 mt-2">Obteniendo tus grupos...</p></div>`;
+            const container = document.getElementById('groupList');
+            container.innerHTML = `<div class="py-10 text-center"><div class="animate-spin inline-block w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full"></div><p class="text-xs text-slate-500 mt-2">Obteniendo tus grupos...</p></div>`;
             
-            // Nota: El permiso 'user_managed_groups' es vital aquí
+            // Requiere permiso user_managed_groups
             FB.api('/me/groups', {limit: 500}, function(response) {
-                if(response.data) {
+                if(response && response.data) {
                     myGroups = response.data;
                     renderGroups(myGroups);
                     addLog(`Se encontraron ${myGroups.length} grupos gestionables.`);
                 } else {
-                    addLog("No se pudieron cargar los grupos. Revisa los permisos.", "error");
+                    const errorMsg = response.error ? response.error.message : "No se pudieron cargar los grupos.";
+                    addLog("ERROR: " + errorMsg, "error");
+                    container.innerHTML = `<p class="text-xs text-red-500 p-4 text-center">Error: ${errorMsg}. Revisa permisos en App Review o usa una cuenta con rol de Administrador.</p>`;
                 }
             });
         }
@@ -203,7 +218,7 @@
         function renderGroups(groups) {
             const container = document.getElementById('groupList');
             if(groups.length === 0) {
-                container.innerHTML = `<p class="text-sm text-red-400 text-center py-10">No tienes grupos donde seas administrador o tengas permisos de publicación.</p>`;
+                container.innerHTML = `<p class="text-sm text-red-400 text-center py-10">No se encontraron grupos. Asegúrate de tener permisos o que la App esté configurada correctamente.</p>`;
                 return;
             }
 
@@ -217,7 +232,6 @@
                 </label>
             `).join('');
 
-            // Update counter
             const checks = document.querySelectorAll('.group-check');
             checks.forEach(c => c.onchange = updateCounter);
             updateCounter();
@@ -228,9 +242,23 @@
             document.getElementById('selectedCount').innerText = count;
         }
 
+        document.getElementById('postImage').oninput = (e) => {
+            const val = e.target.value;
+            const container = document.getElementById('imgPreviewContainer');
+            const img = document.getElementById('imgPreview');
+            if(val) {
+                img.src = val;
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+            }
+        };
+
         // Acciones
         document.getElementById('loginBtn').onclick = () => {
-            FB.login(statusChangeCallback, {scope: 'publish_to_groups,groups_access_member_info,user_managed_groups'});
+            FB.login(statusChangeCallback, {
+                scope: 'publish_to_groups,groups_access_member_info,user_managed_groups'
+            });
         };
 
         document.getElementById('logoutBtn').onclick = () => {
@@ -258,7 +286,6 @@
             if(selected.length === 0) return alert("Selecciona al menos un grupo.");
             if(!msg) return alert("El mensaje no puede estar vacío.");
 
-            // UI State
             const btn = document.getElementById('startAction');
             const loader = document.getElementById('btnLoader');
             const badge = document.getElementById('progressBadge');
@@ -266,19 +293,18 @@
             btn.disabled = true;
             loader.classList.remove('hidden');
             badge.classList.remove('hidden');
-            addLog(`>>> Iniciando ráfaga de publicación en ${selected.length} grupos...`, "info");
+            addLog(`Iniciando publicación en ${selected.length} grupos...`, "info");
 
             for(let i = 0; i < selected.length; i++) {
                 const groupId = selected[i];
                 const groupName = myGroups.find(g => g.id === groupId)?.name || groupId;
                 
-                addLog(`Publicando en: ${groupName}...`);
+                addLog(`Enviando a: ${groupName}...`);
+                await executePost(groupId, msg, link, img);
                 
-                const success = await executePost(groupId, msg, link, img);
-                
-                // Espera de seguridad entre publicaciones (Evita bloqueos)
+                // Pausa de seguridad (5-8 segundos)
                 if(i < selected.length - 1) {
-                    const waitTime = 5000 + Math.random() * 3000; // 5-8 segundos aleatorios
+                    const waitTime = 5000 + Math.random() * 3000;
                     await new Promise(r => setTimeout(r, waitTime));
                 }
             }
@@ -286,30 +312,24 @@
             btn.disabled = false;
             loader.classList.add('hidden');
             badge.classList.add('hidden');
-            addLog("PROCESO COMPLETADO.", "success");
-            alert("¡Listo! Revisa la consola para ver los resultados.");
+            addLog("PROCESO TERMINADO.", "success");
         };
 
         function executePost(id, message, link, picture) {
             return new Promise((resolve) => {
-                let endpoint = `/${id}/feed`;
                 let params = { 
                     message: message,
                     access_token: accessToken
                 };
-                
                 if(link) params.link = link;
-                if(picture) {
-                    // Si hay foto, Facebook prefiere el endpoint /photos o adjuntar el link de la foto
-                    params.picture = picture;
-                }
+                if(picture) params.picture = picture;
 
-                FB.api(endpoint, 'post', params, function(response) {
+                FB.api(`/${id}/feed`, 'post', params, function(response) {
                     if(response && !response.error) {
-                        addLog(`ÉXITO: Publicado en ID ${id}`, "success");
+                        addLog(`ÉXITO en ${id}`, "success");
                         resolve(true);
                     } else {
-                        addLog(`FALLO en ID ${id}: ${response.error?.message || 'Error desconocido'}`, "error");
+                        addLog(`FALLO en ${id}: ${response.error?.message || 'Error'}`, "error");
                         resolve(false);
                     }
                 });
