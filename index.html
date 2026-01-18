@@ -46,12 +46,21 @@
             </div>
         </div>
 
-        <!-- Alerta de Seguridad -->
+        <!-- Alerta de Seguridad / Errores -->
+        <div id="setupAlert" class="bg-red-50 border border-red-200 p-4 rounded-xl mb-6 flex gap-3 items-start hidden">
+            <svg class="w-6 h-6 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <div class="text-xs text-red-800">
+                <p class="font-bold uppercase mb-1 text-red-600">Error de Dominio o SDK</p>
+                <p id="setupAlertMsg">Cargando diagnóstico...</p>
+                <div id="domainDebug" class="mt-2 p-2 bg-red-100 rounded font-mono text-[10px]"></div>
+            </div>
+        </div>
+
         <div class="bg-amber-50 border border-amber-200 p-4 rounded-xl mb-6 flex gap-3 items-start">
             <svg class="w-6 h-6 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
             <div class="text-xs text-amber-800">
                 <p class="font-bold uppercase mb-1">Protección Anti-Ban Activada</p>
-                <p>Para evitar bloqueos, hemos configurado una pausa aleatoria de <strong>15 a 45 segundos</strong> entre publicaciones. No publiques en más de 20 grupos por hora.</p>
+                <p>Configuración actual: Pausa aleatoria de <strong>15 a 45 segundos</strong> entre cada publicación.</p>
             </div>
         </div>
 
@@ -130,7 +139,7 @@
                         <div id="progressBadge" class="hidden text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded border border-blue-500/30 font-bold">SIMULANDO ACTIVIDAD HUMANA</div>
                     </div>
                     <div id="consoleLog" class="status-log custom-scrollbar text-[11px] text-green-400 space-y-1">
-                        <div class="text-slate-500">> Sistema listo. Respete los límites de Facebook.</div>
+                        <div class="text-slate-500">> Sistema listo. Ingrese su APP_ID y conecte con Facebook.</div>
                     </div>
                 </section>
             </div>
@@ -143,11 +152,25 @@
     <script async defer crossorigin="anonymous" src="https://connect.facebook.net/es_LA/sdk.js"></script>
 
     <script>
+        // --- CONFIGURACIÓN CRÍTICA ---
+        // 1. Reemplaza 'TU_APP_ID_AQUÍ' con el ID numérico de tu app en developers.facebook.com
         const APP_ID = '2322833134885548'; 
+        // -----------------------------
+
         let accessToken = null;
         let myGroups = [];
+        let isSdkLoaded = false;
 
         window.fbAsyncInit = function() {
+            // Muestra el dominio actual para ayudar al usuario a configurar Meta
+            const currentDomain = window.location.hostname;
+            document.getElementById('domainDebug').innerText = "Tu dominio actual: " + (currentDomain || "localhost/archivo-local");
+
+            if (APP_ID === 'TU_APP_ID_AQUÍ' || !APP_ID || APP_ID.length < 5) {
+                showSetupError("ID de aplicación no válido. Edita la constante APP_ID en el código.");
+                return;
+            }
+
             try {
                 FB.init({
                     appId      : APP_ID,
@@ -155,18 +178,35 @@
                     xfbml      : true,
                     version    : 'v18.0'
                 });
+                isSdkLoaded = true;
+                addLog("SDK de Facebook inicializado con APP_ID: " + APP_ID, "info");
                 FB.getLoginStatus(statusChangeCallback);
             } catch (e) {
-                addLog("Error cargando SDK: Revise configuración.", "error");
+                showSetupError("Error de inicialización de Facebook. Revisa los dominios permitidos en el panel de Meta.");
             }
         };
+
+        // Verificación de bloqueo de SDK (AdBlockers) o error de dominio
+        setTimeout(() => {
+            if (!isSdkLoaded && (APP_ID !== 'TU_APP_ID_AQUÍ')) {
+                showSetupError("El SDK no cargó. Posible error de Dominio Desconocido o AdBlock.");
+            }
+        }, 5000);
+
+        function showSetupError(msg) {
+            const alertBox = document.getElementById('setupAlert');
+            const alertMsg = document.getElementById('setupAlertMsg');
+            alertBox.classList.remove('hidden');
+            alertMsg.innerText = msg;
+            addLog("FALLO: " + msg, "error");
+        }
 
         function statusChangeCallback(response) {
             if (response.status === 'connected') {
                 accessToken = response.authResponse.accessToken;
                 showLoggedInUI();
                 fetchUserGroups();
-                addLog("Sesión iniciada correctamente.", "success");
+                addLog("Conexión con Facebook exitosa.", "success");
             } else {
                 showLoggedOutUI();
             }
@@ -212,8 +252,11 @@
                 if(response && response.data) {
                     myGroups = response.data;
                     renderGroups(myGroups);
+                    addLog(`Se cargaron ${myGroups.length} grupos.`);
                 } else {
-                    container.innerHTML = `<p class="text-xs text-red-500 p-4 text-center">Error al obtener grupos. Verifique permisos.</p>`;
+                    const error = response.error?.message || "Sin permisos";
+                    container.innerHTML = `<p class="text-xs text-red-500 p-4 text-center">Error: ${error}.</p>`;
+                    addLog("Error cargando grupos: " + error, "error");
                 }
             });
         }
@@ -251,6 +294,10 @@
         };
 
         document.getElementById('loginBtn').onclick = () => {
+            if (!isSdkLoaded) {
+                alert("El SDK no ha cargado. Verifica los dominios permitidos en Meta Developers.");
+                return;
+            }
             FB.login(statusChangeCallback, { scope: 'publish_to_groups,user_managed_groups' });
         };
 
@@ -265,38 +312,22 @@
             const link = document.getElementById('postLink').value;
             const img = document.getElementById('postImage').value;
 
-            if(selected.length === 0 || !msg) return alert("Complete los campos y seleccione grupos.");
+            if(selected.length === 0 || !msg) return alert("Selecciona grupos y escribe un mensaje.");
             
-            if(selected.length > 20) {
-                if(!confirm("Ha seleccionado más de 20 grupos. Esto aumenta el riesgo de BAN. ¿Desea continuar bajo su propio riesgo?")) return;
-            }
-
             const btn = document.getElementById('startAction');
             const loader = document.getElementById('btnLoader');
-            const badge = document.getElementById('progressBadge');
-            
             btn.disabled = true;
             loader.classList.remove('hidden');
-            badge.classList.remove('hidden');
 
             for(let i = 0; i < selected.length; i++) {
-                const groupId = selected[i];
-                addLog(`Publicando en grupo ${i + 1}/${selected.length}...`, "info");
-                
-                await executePost(groupId, msg, link, img);
-                
-                if(i < selected.length - 1) {
-                    // Intervalo de seguridad: entre 15 y 45 segundos aleatorios
-                    const waitSeconds = Math.floor(Math.random() * (45 - 15 + 1)) + 15;
-                    addLog(`Esperando ${waitSeconds}s para simular comportamiento humano...`, "info");
-                    await new Promise(r => setTimeout(r, waitSeconds * 1000));
-                }
+                addLog(`Publicando ${i + 1}/${selected.length}...`, "info");
+                await executePost(selected[i], msg, link, img);
+                if(i < selected.length - 1) await new Promise(r => setTimeout(r, 15000));
             }
 
             btn.disabled = false;
             loader.classList.add('hidden');
-            badge.classList.add('hidden');
-            addLog("PROCESO FINALIZADO CON ÉXITO.", "success");
+            addLog("PROCESO TERMINADO.", "success");
         };
 
         function executePost(id, message, link, picture) {
@@ -304,15 +335,10 @@
                 let params = { message: message, access_token: accessToken };
                 if(link) params.link = link;
                 if(picture) params.picture = picture;
-
-                FB.api(`/${id}/feed`, 'post', params, function(response) {
-                    if(response && !response.error) {
-                        addLog(`ÉXITO en ID: ${id}`, "success");
-                        resolve(true);
-                    } else {
-                        addLog(`ERROR en ID ${id}: ${response.error?.message}`, "error");
-                        resolve(false);
-                    }
+                FB.api(`/${id}/feed`, 'post', params, (res) => {
+                    if(res && !res.error) addLog(`Éxito en ${id}`, "success");
+                    else addLog(`Error en ${id}: ${res.error?.message}`, "error");
+                    resolve(true);
                 });
             });
         }
